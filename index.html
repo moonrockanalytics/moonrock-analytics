@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🌙 Moonrock Analytics Dashboard — GA4</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --gold: #c8a400;
+    --gold-light: #ffe066;
+    --dark: #0d0d1a;
+    --dark2: #16162a;
+    --dark3: #1e1e35;
+    --card: #1a1a2e;
+    --text: #e8e6dc;
+    --muted: #888;
+    --green: #00c97a;
+    --red: #ff4d6d;
+    --blue: #4da6ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    width: 220px; background: var(--dark2);
+    border-right: 1px solid #2a2a45;
+    display: flex; flex-direction: column;
+    z-index: 100;
+  }
+  .sidebar-logo {
+    padding: 22px 18px 16px;
+    border-bottom: 1px solid #2a2a45;
+  }
+  .sidebar-logo .brand { color: var(--gold); font-weight: 700; font-size: 13px; letter-spacing: 0.5px; }
+  .sidebar-logo .sub { color: var(--muted); font-size: 10px; margin-top: 2px; }
+  .nav-label {
+    color: var(--muted); font-size: 9px; text-transform: uppercase;
+    letter-spacing: 1px; padding: 16px 18px 6px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 18px; cursor: pointer; transition: all 0.2s;
+    font-size: 13px; color: #aaa; border-left: 3px solid transparent;
+  }
+  .nav-item:hover, .nav-item.active {
+    background: rgba(200,164,0,0.1); color: var(--gold);
+    border-left-color: var(--gold);
+  }
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+
+  .setup-note {
+    margin: 12px; padding: 10px 12px;
+    background: rgba(200,164,0,0.12);
+    border: 1px solid rgba(200,164,0,0.3);
+    border-radius: 6px; font-size: 10px;
+    color: var(--gold); line-height: 1.5;
+  }
+  .setup-note strong { display: block; margin-bottom: 4px; }
+
+  /* MAIN */
+  .main {
+    margin-left: 220px;
+    padding: 24px;
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 24px;
+  }
+  .top-bar h1 { font-size: 20px; font-weight: 700; color: var(--text); }
+  .top-bar .subtitle { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .range-pills { display: flex; gap: 6px; }
+  .pill {
+    padding: 5px 14px; border-radius: 20px; font-size: 12px;
+    cursor: pointer; border: 1px solid #2a2a45;
+    color: var(--muted); background: var(--dark2); transition: all 0.2s;
+  }
+  .pill.active, .pill:hover { background: var(--gold); color: var(--dark); border-color: var(--gold); font-weight: 600; }
+
+  /* SETUP BANNER */
+  .setup-banner {
+    background: linear-gradient(135deg, rgba(200,164,0,0.15), rgba(200,164,0,0.05));
+    border: 1px solid rgba(200,164,0,0.4);
+    border-radius: 10px; padding: 18px 22px; margin-bottom: 24px;
+  }
+  .setup-banner h3 { color: var(--gold); font-size: 14px; margin-bottom: 10px; }
+  .setup-banner p { color: #bbb; font-size: 12px; line-height: 1.6; margin-bottom: 8px; }
+  .setup-steps { list-style: none; }
+  .setup-steps li {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 12px; color: #ccc;
+  }
+  .step-num {
+    background: var(--gold); color: var(--dark);
+    font-weight: 700; font-size: 10px;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .code-snippet {
+    background: #0d0d1a; border: 1px solid #333;
+    border-radius: 6px; padding: 10px 14px;
+    font-family: 'Courier New', monospace; font-size: 11px;
+    color: #7fffb2; margin: 8px 0; word-break: break-all;
+    line-height: 1.6;
+  }
+
+  /* STAT CARDS */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 16px; margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--card); border-radius: 10px;
+    border: 1px solid #2a2a45; padding: 18px;
+    position: relative; overflow: hidden;
+  }
+  .stat-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--gold);
+  }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+  .stat-val { font-size: 28px; font-weight: 700; color: var(--gold); margin: 6px 0; line-height: 1; }
+  .stat-change { font-size: 11px; }
+  .stat-change.up { color: var(--green); }
+  .stat-change.down { color: var(--red); }
+  .stat-icon { position: absolute; right: 14px; top: 14px; font-size: 22px; opacity: 0.4; }
+
+  /* CHARTS ROW */
+  .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-card {
+    background: var(--card); border-radius: 10px;
+    border: 1px solid #2a2a45; padding: 20px;
+  }
+  .chart-card h3 { font-size: 13px; color: var(--text); margin-bottom: 16px; }
+  .chart-wrap { position: relative; height: 200px; }
+
+  /* PAGES TABLE */
+  .table-card {
+    background: var(--card); border-radius: 10px;
+    border: 1px solid #2a2a45; padding: 20px; margin-bottom: 24px;
+  }
+  .table-card h3 { font-size: 13px; margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left; font-size: 10px; text-transform: uppercase;
+    letter-spacing: 0.8px; color: var(--muted); padding: 6px 10px;
+    border-bottom: 1px solid #2a2a45;
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 12px; }
+  tr:hover td { background: rgba(255,255,255,0.03); }
+  .page-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  .page-bar { height: 4px; background: var(--gold); border-radius: 2px; }
+  .badge-device {
+    display: inline-block; padding: 2px 8px; border-radius: 10px;
+    font-size: 10px; font-weight: 600;
+  }
+  .badge-device.mobile { background: rgba(77,166,255,0.15); color: var(--blue); }
+  .badge-device.desktop { background: rgba(0,201,122,0.15); color: var(--green); }
+  .badge-device.tablet { background: rgba(200,164,0,0.15); color: var(--gold); }
+
+  /* FOOTER NOTE */
+  .footer-note {
+    background: var(--dark2); border-radius: 10px;
+    border: 1px solid #2a2a45; padding: 14px 18px;
+    font-size: 11px; color: var(--muted); line-height: 1.6;
+  }
+  .footer-note strong { color: var(--text); }
+
+  /* DEMO BADGE */
+  .demo-badge {
+    background: rgba(255,77,109,0.15); border: 1px solid rgba(255,77,109,0.4);
+    color: #ff4d6d; font-size: 10px; font-weight: 600;
+    padding: 3px 10px; border-radius: 20px; display: inline-block;
+  }
+
+  /* RESPONSIVE */
+  @media (max-width: 900px) {
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .charts-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand">🌙 MOONROCK ANALYTICS</div>
+    <div class="sub">zodiaksmoonrock.com</div>
+  </div>
+  <div class="nav-label">Reports</div>
+  <div class="nav-item active"><span class="icon">📊</span> Overview</div>
+  <div class="nav-item"><span class="icon">📄</span> Pages</div>
+  <div class="nav-item"><span class="icon">👥</span> Visitors</div>
+  <div class="nav-item"><span class="icon">📱</span> Devices</div>
+  <div class="nav-label">Setup</div>
+  <div class="nav-item"><span class="icon">⚙️</span> GA4 Connect</div>
+  <div class="setup-note">
+    <strong>⚠️ Setup Required</strong>
+    Connect GA4 Reporting API to see real data. See instructions on the right panel.
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="top-bar">
+    <div>
+      <h1>Analytics Dashboard</h1>
+      <div class="subtitle">Dr. Zodiak's Moonrock · zodiaksmoonrock.com</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <div class="range-pills">
+        <div class="pill active">Today</div>
+        <div class="pill">7 Days</div>
+        <div class="pill">30 Days</div>
+        <div class="pill">90 Days</div>
+      </div>
+      <button onclick="exportPDF()" style="
+        background: var(--gold); color: var(--dark); border: none;
+        padding: 7px 16px; font-weight: 700; font-size: 12px;
+        border-radius: 20px; cursor: pointer; white-space: nowrap;
+        display: flex; align-items: center; gap: 6px;
+      ">🖨️ Export PDF</button>
+    </div>
+  </div>
+
+  <!-- STAT CARDS (demo data) -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon">👁️</div>
+      <div class="stat-label">Visitors Today</div>
+      <div class="stat-val">187</div>
+      <div class="stat-change up">▲ 12% vs yesterday</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">📄</div>
+      <div class="stat-label">Page Views</div>
+      <div class="stat-val">543</div>
+      <div class="stat-change up">▲ 8%</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">⏱️</div>
+      <div class="stat-label">Avg. Time on Site</div>
+      <div class="stat-val">2:34</div>
+      <div class="stat-change down">▼ 5% vs yesterday</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🔄</div>
+      <div class="stat-label">Bounce Rate</div>
+      <div class="stat-val">61%</div>
+      <div class="stat-change up">▼ 3% (better)</div>
+    </div>
+  </div>
+
+  <!-- CHARTS -->
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3>📈 Daily Visitors — Last 30 Days</h3>
+      <div class="chart-wrap">
+        <canvas id="visitorsChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>📱 Device Breakdown</h3>
+      <div class="chart-wrap">
+        <canvas id="deviceChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOP PAGES TABLE -->
+  <div class="table-card">
+    <h3>🔥 Most Visited Pages — Today</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Page</th>
+          <th>Visitors</th>
+          <th>Traffic Share</th>
+          <th>Avg. Time</th>
+          <th>Device</th>
+        </tr>
+      </thead>
+      <tbody id="pagesTable">
+        <!-- filled by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- WEEKLY REPORT CARD -->
+  <div class="charts-row" style="margin-bottom: 24px;">
+    <div class="chart-card">
+      <h3>📅 Weekly Visitor Trend</h3>
+      <div class="chart-wrap">
+        <canvas id="weeklyChart"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>🌍 Top Traffic Sources</h3>
+      <div style="margin-top: 8px;">
+        <div id="sourcesTable"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-note">
+    <strong>📌 About this dashboard:</strong> This panel is built to connect to <strong>Google Analytics 4 (GA4)</strong> via the official Reporting API. 
+    It works best when GA4 is installed on the Shopify store. The current data shown is for demonstration purposes. 
+    Once connected, it will show real visitor counts, page views, session duration, device types, and traffic sources — updated daily.
+    For help with setup, contact your web developer or designer.
+  </div>
+</div>
+
+<script>
+// ─── DEMO DATA ───────────────────────────────────────────────────
+const GA4_PROPERTY_ID = "YOUR_GA4_PROPERTY_ID"; // Replace with real ID
+
+// Generate 30 days of demo data
+function genDemoVisitors() {
+  const base = 140;
+  return Array.from({length: 30}, (_, i) => {
+    const trend = i * 1.5;
+    const noise = (Math.random() - 0.3) * 40;
+    return Math.round(Math.max(80, base + trend + noise));
+  });
+}
+
+const demoPages = [
+  { page: "/ (Homepage)", visitors: 98, time: "1:52", device: "mobile" },
+  { page: "/collections/dr-zodiaks-moonrock-products", visitors: 67, time: "3:14", device: "mobile" },
+  { page: "/pages/store-locator", visitors: 52, time: "2:41", device: "desktop" },
+  { page: "/pages/arizona-store-locations", visitors: 34, time: "1:58", device: "mobile" },
+  { page: "/collections/dr-zodiaks-moonrock-the-big-homie-2g", visitors: 28, time: "4:02", device: "desktop" },
+  { page: "/pages/california-store-locations", visitors: 24, time: "2:15", device: "tablet" },
+  { page: "/collections/freebies", visitors: 19, time: "0:58", device: "mobile" },
+  { page: "/products/dr-zodiak-moonrock-baseball-jersey", visitors: 17, time: "3:45", device: "desktop" },
+];
+
+const demoSources = [
+  { source: "Direct", pct: 38, color: "#c8a400" },
+  { source: "Google Organic", pct: 27, color: "#4da6ff" },
+  { source: "Instagram", pct: 18, color: "#ff6b9d" },
+  { source: "Google Ads", pct: 9, color: "#00c97a" },
+  { source: "Other", pct: 8, color: "#888" },
+];
+
+// ─── RENDER CHARTS ───────────────────────────────────────────────
+const chartDefaults = {
+  font: { family: "'Segoe UI', Arial, sans-serif" },
+  color: '#888'
+};
+Chart.defaults.font = chartDefaults.font;
+Chart.defaults.color = chartDefaults.color;
+
+// Visitors line chart
+const visData = genDemoVisitors();
+const labels = Array.from({length: 30}, (_, i) => {
+  const d = new Date(); d.setDate(d.getDate() - 29 + i);
+  return d.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+});
+
+new Chart(document.getElementById('visitorsChart'), {
+  type: 'line',
+  data: {
+    labels,
+    datasets: [{
+      label: 'Visitors',
+      data: visData,
+      borderColor: '#c8a400',
+      backgroundColor: 'rgba(200,164,0,0.1)',
+      borderWidth: 2, fill: true, tension: 0.4,
+      pointBackgroundColor: '#c8a400', pointRadius: 2, pointHoverRadius: 5
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { maxTicksLimit: 6 } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, min: 0 }
+    }
+  }
+});
+
+// Device donut chart
+new Chart(document.getElementById('deviceChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Mobile', 'Desktop', 'Tablet'],
+    datasets: [{
+      data: [62, 31, 7],
+      backgroundColor: ['#4da6ff', '#00c97a', '#c8a400'],
+      borderWidth: 0, hoverOffset: 8
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { padding: 16, font: { size: 11 } } }
+    },
+    cutout: '65%'
+  }
+});
+
+// Weekly bar chart
+const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+new Chart(document.getElementById('weeklyChart'), {
+  type: 'bar',
+  data: {
+    labels: weekDays,
+    datasets: [{
+      label: 'This week',
+      data: [142, 178, 195, 167, 201, 88, 74],
+      backgroundColor: 'rgba(200,164,0,0.7)',
+      borderRadius: 4
+    }, {
+      label: 'Last week',
+      data: [130, 155, 170, 148, 182, 79, 65],
+      backgroundColor: 'rgba(200,164,0,0.2)',
+      borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 12 } } },
+    scales: {
+      x: { grid: { color: 'rgba(255,255,255,0.05)' } },
+      y: { grid: { color: 'rgba(255,255,255,0.05)' }, min: 0 }
+    }
+  }
+});
+
+// ─── RENDER TABLES ────────────────────────────────────────────────
+// Pages table
+const maxV = demoPages[0].visitors;
+const tbody = document.getElementById('pagesTable');
+demoPages.forEach((p, i) => {
+  const pct = Math.round(p.visitors / maxV * 100);
+  tbody.innerHTML += `
+    <tr>
+      <td style="color: var(--muted); font-size: 11px;">${i+1}</td>
+      <td style="font-family: monospace; font-size: 11px; color: #ccc; max-width: 260px;">${p.page}</td>
+      <td style="font-weight: 600; color: var(--gold);">${p.visitors}</td>
+      <td>
+        <div class="page-bar-wrap">
+          <div class="page-bar" style="width: ${pct}px;"></div>
+          <span style="font-size: 10px; color: var(--muted);">${pct}%</span>
+        </div>
+      </td>
+      <td style="color: var(--muted);">${p.time}</td>
+      <td><span class="badge-device ${p.device}">${p.device}</span></td>
+    </tr>
+  `;
+});
+
+// Sources
+const srcWrap = document.getElementById('sourcesTable');
+demoSources.forEach(s => {
+  srcWrap.innerHTML += `
+    <div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+      <div style="width: 10px; height: 10px; border-radius: 50%; background: ${s.color}; flex-shrink: 0;"></div>
+      <div style="flex: 1; font-size: 12px;">${s.source}</div>
+      <div style="font-weight: 700; color: ${s.color}; font-size: 13px;">${s.pct}%</div>
+      <div style="width: 80px; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+        <div style="height: 100%; width: ${s.pct}%; background: ${s.color}; border-radius: 3px;"></div>
+      </div>
+    </div>
+  `;
+});
+
+// ─── RANGE PILLS ─────────────────────────────────────────────────
+document.querySelectorAll('.pill').forEach(pill => {
+  pill.addEventListener('click', function() {
+    document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+// ─── PDF EXPORT ───────────────────────────────────────────────────
+function exportPDF() {
+  const activePill = document.querySelector('.pill.active')?.textContent || 'Today';
+  const now = new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
+  const printStyles = `
+    <style>
+      @page { size: letter landscape; margin: 1.5cm 2cm; }
+      body { font-family: Arial, sans-serif; background: #fff !important; color: #111 !important; }
+      .sidebar { display: none !important; }
+      .main { margin-left: 0 !important; padding: 0 !important; }
+      .top-bar button { display: none !important; }
+      .range-pills { display: none !important; }
+      .stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 16px; }
+      .stat-card { background: #f5f5f5 !important; border: 1px solid #ddd; border-radius: 6px; padding: 12px; color: #111 !important; }
+      .stat-label { color: #666 !important; font-size: 9px; text-transform: uppercase; }
+      .stat-val { color: #b8960a !important; font-size: 22px; font-weight: 700; }
+      .stat-change { font-size: 10px; }
+      .stat-change.up { color: green !important; }
+      .stat-change.down { color: red !important; }
+      .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 16px; }
+      .chart-card { background: #f9f9f9 !important; border: 1px solid #ddd; border-radius: 6px; padding: 14px; }
+      .chart-card h3 { color: #111 !important; font-size: 11px; margin-bottom: 10px; }
+      .chart-wrap { height: 160px; }
+      .table-card { background: #fff !important; border: 1px solid #ddd; border-radius: 6px; padding: 14px; margin-bottom: 16px; }
+      .table-card h3 { color: #111 !important; font-size: 11px; margin-bottom: 8px; }
+      table { width: 100%; border-collapse: collapse; }
+      th { background: #111 !important; color: #c8a400 !important; padding: 5px 8px; font-size: 9px; }
+      td { padding: 5px 8px; border-bottom: 1px solid #eee; font-size: 10px; color: #111; }
+      .footer-note { display: none; }
+      .stat-icon { display: none; }
+      .badge-device { font-size: 9px; padding: 1px 6px; }
+    </style>
+  `;
+  const reportTitle = `
+    <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #c8a400;padding-bottom:10px;margin-bottom:18px;">
+      <div>
+        <div style="font-size:18px;font-weight:700;color:#111;">🌙 Dr. Zodiak's Moonrock</div>
+        <div style="font-size:11px;color:#888;margin-top:3px;">Analytics Report — ${activePill}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:10px;color:#888;">Generated: ${now}</div>
+        <div style="font-size:10px;color:#888;">zodiaksmoonrock.com</div>
+      </div>
+    </div>
+  `;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">${printStyles}</head><body>`);
+  win.document.write(reportTitle);
+  win.document.write(document.querySelector('.main').innerHTML);
+  win.document.close();
+  setTimeout(() => { win.print(); }, 800);
+}
+</script>
+</body>
+</html>
